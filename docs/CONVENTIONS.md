@@ -15,14 +15,21 @@
 ## 2. 디렉토리 구조
 
 ```
+.claude-plugin/
+  plugin.json       # Claude Code 플러그인 매니페스트 (이 저장소 자체가 플러그인)
+  marketplace.json  # 이 저장소 자체를 단일 플러그인 마켓플레이스로 등록 (source: ".")
+.mcp.json           # 플러그인이 번들하는 MCP 서버 정의 (peekly-mcp를 npx로 실행)
 src/
   index.ts          # MCP 서버 엔트리 (도구 등록 + stdio transport)
   tools/            # MCP 도구 구현 (browser, crawler, cost, report 등)
   platform/         # OS 분기 어댑터 (macOS/Windows) — 이 레이어 밖에서는 OS를 몰라야 함
   report/           # PPT 생성 관련 (Python 스크립트 + 호출 wrapper)
     pptx_tool.py
-CONVENTIONS.md
-CHANGELOG.md
+skills/peekly/SKILL.md  # 플러그인이 번들하는 Skill (기본 경로 규칙상 위치 고정)
+docs/
+  CONVENTIONS.md
+  CHANGELOG.md
+  worklog/
 ```
 
 - 새 MCP 도구는 `src/tools/` 아래 파일 하나당 도구 하나(또는 밀접하게 연관된 도구 묶음) 단위로 추가한다.
@@ -78,6 +85,18 @@ scope 예시: `mcp-core`, `report`, `platform`, `skill`, `release`
 npm 레지스트리에 publish하지 않고(사내 전용) GitHub에서 바로 `npm install -g git+https://...`로 설치하는 방식을 쓰기 때문에, **`dist/`를 예외적으로 git에 커밋한다.** git 의존성 설치 시 `prepare` 스크립트로 devDependencies(`typescript` 등)를 빌드하게 하는 표준 방식을 시도했으나 이 환경의 npm에서 git-dep 준비 단계가 실패해서(빌드 샌드박스에 devDependencies가 제대로 안 잡힘), 대신 빌드된 `dist/`를 그대로 커밋해 설치 시 빌드가 아예 필요 없게 만들었다.
 
 **따라서 `src/`를 수정하는 모든 커밋은 반드시 그 안에 최신 `npm run build` 결과물(`dist/`)도 함께 포함해야 한다.** `dist/`가 stale하면 설치된 패키지가 실제 소스와 어긋난다. 실제 npm publish나 CI 빌드 파이프라인이 생기면 이 조치는 걷어내고 `dist/`를 다시 `.gitignore`에 넣어야 한다.
+
+## 8-1. Claude Code 플러그인 패키징
+
+이 저장소는 그 자체가 Claude Code 플러그인이자, 그 플러그인을 담은 단일 플러그인 마켓플레이스다.
+
+- `.claude-plugin/plugin.json` — 플러그인 매니페스트. **`version` 필드를 의도적으로 넣지 않았다** — 넣지 않으면 마켓플레이스가 git 커밋 SHA를 버전으로 취급해서, 커밋할 때마다 새 버전으로 인식되고 `claude plugin update`가 매번 최신 커밋을 받아온다. 이 저장소는 하루에도 여러 번 릴리즈하는 속도로 활발히 개발 중이라, `package.json`의 semver와 별개로 plugin.json 버전까지 매번 손으로 올리는 건 불필요한 부담이라고 판단했다. (`package.json`의 semver는 여전히 6장 릴리즈 프로세스 그대로 유지 — plugin.json 버전과는 별개 트랙이다.)
+- `.claude-plugin/marketplace.json` — `plugins[0].source: "."`로 이 저장소 자신을 가리킨다. 별도 마켓플레이스 저장소를 안 만들고 자기 자신을 마켓플레이스 겸 플러그인으로 쓰는 패턴이다.
+- `.mcp.json` — 플러그인이 번들하는 MCP 서버 정의. `command: "npx"`, `args: ["peekly-mcp"]`로, 이미 전역 설치된(`npm install -g .`) `peekly-mcp` 바이너리를 그대로 가리킨다.
+- **플러그인 설치는 의존성 설치를 대신해주지 않는다.** `claude plugin install`은 스킬/MCP 설정 파일을 복사할 뿐, `npm install`(Playwright 브라우저 다운로드 포함)이나 keytar 네이티브 빌드, `pip install`은 실행하지 않는다. 그래서 README의 설치 한 줄 명령에서 `npm install -g .` + `pip install -r requirements.txt` 단계는 플러그인 전환 후에도 계속 필요하다 — 이 부분을 없애려면 `peekly-mcp`를 npm 레지스트리에 정식 배포해서 `npx peekly-mcp`가 로컬 clone 없이도 동작하게 만들어야 하는데, 이는 아직 결정되지 않은 별도 사안이다 (섹션 8 참고).
+- `.claude/agents/*.md`(개발용 서브에이전트 5개)는 **플러그인에 포함하지 않는다.** 이건 Peekly를 "만드는" 우리 쪽 개발 도구이지, Peekly를 "쓰는" 최종 사용자에게 필요한 게 아니다. `plugin.json`에 `agents` 필드를 넣지 않은 건 의도적인 선택이다.
+- `peekly install-skill` CLI(`src/cli.ts`)는 플러그인 등장 이후에도 지우지 않았다 — 프로젝트 스코프로만 스킬을 따로 설치하고 싶은 경우 등 수동 설치 경로로 남겨둔다. 다만 README의 기본 안내 경로는 플러그인 설치로 바뀌었다.
+- **알려진 중복 가능성**: 이 저장소 안의 `.claude/skills/peekly/`(project-scope, `install-skill --project`로 만든 dogfooding용 사본)는 이제 이 저장소 자체를 플러그인으로 설치해도 같은 스킬을 제공하기 때문에 잠재적으로 중복이다. 실제 충돌 여부는 아직 확인 안 됐고, 확인되면 이 항목을 갱신하거나 `.claude/skills/peekly/`를 제거해야 한다. (개인 스코프 `~/.claude/skills/peekly`와 수동 `claude mcp add peekly` 등록은 플러그인 전환 시 실제로 이름 중복을 일으켜서 제거했다 — README의 마이그레이션 안내 참고.)
 
 ## 9. 미확정 설계 사항 처리 방침
 

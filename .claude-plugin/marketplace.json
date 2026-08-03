@@ -1,0 +1,14 @@
+{
+  "name": "oh-my-peekly",
+  "description": "oh-my-peekly 저장소 자신을 담은 단일 플러그인 마켓플레이스",
+  "owner": {
+    "name": "minsu0707"
+  },
+  "plugins": [
+    {
+      "name": "oh-my-peekly",
+      "source": ".",
+      "description": "웹 서비스 QA 자동 점검 MCP 서버 + Skill"
+    }
+  ]
+}

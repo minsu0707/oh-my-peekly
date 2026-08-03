@@ -1,0 +1,10 @@
+{
+  "name": "oh-my-peekly",
+  "displayName": "Peekly",
+  "description": "서비스 URL/계정/PPT 템플릿만 있으면 웹 서비스를 순회하며 QA 테스트를 수행하고, 발견한 이슈를 계정별 PPT 보고서로 생성하는 QA 자동화 확장 (MCP 서버 + Skill).",
+  "homepage": "https://github.com/minsu0707/oh-my-peekly",
+  "repository": "https://github.com/minsu0707/oh-my-peekly",
+  "author": {
+    "name": "minsu0707"
+  }
+}

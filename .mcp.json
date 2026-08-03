@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "peekly": {
+      "command": "npx",
+      "args": ["peekly-mcp"]
+    }
+  }
+}
