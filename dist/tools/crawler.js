@@ -58,6 +58,10 @@ const sitemapCrawlInput = {
         .optional()
         .describe(`Maximum number of pages to visit before stopping (safety limit against unbounded crawls). ` +
         `Provisional default: ${DEFAULT_MAX_PAGES} (design doc's crawl-scope-limit question is still open).`),
+    sessionId: z
+        .string()
+        .optional()
+        .describe("Which browser tab/session to crawl with (see browser_new_session). Omit for the default tab."),
 };
 const sitemapCrawlOutput = {
     success: z.boolean(),
@@ -72,7 +76,7 @@ export function registerCrawlerTools(server) {
         description: "Starting from a URL, follow same-origin links (BFS) using the shared, already-logged-in browser session to discover the set of reachable screens. External-domain links are never visited. Stops once maxPages is reached and reports whether the crawl was truncated. Does not judge which screens are worth testing — it only reports what it found.",
         inputSchema: sitemapCrawlInput,
         outputSchema: sitemapCrawlOutput,
-    }, async ({ startUrl, maxPages }) => {
+    }, async ({ startUrl, maxPages, sessionId }) => {
         const pageLimit = maxPages ?? DEFAULT_MAX_PAGES;
         try {
             const normalizedStart = normalizeUrl(startUrl);
@@ -84,7 +88,7 @@ export function registerCrawlerTools(server) {
             const queue = [normalizedStart];
             const discovered = [];
             let truncated = false;
-            const page = await getPage();
+            const page = await getPage(sessionId);
             while (queue.length > 0) {
                 if (visited.size >= pageLimit) {
                     truncated = queue.length > 0;

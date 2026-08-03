@@ -70,6 +70,10 @@ const sitemapCrawlInput = {
       `Maximum number of pages to visit before stopping (safety limit against unbounded crawls). ` +
         `Provisional default: ${DEFAULT_MAX_PAGES} (design doc's crawl-scope-limit question is still open).`
     ),
+  sessionId: z
+    .string()
+    .optional()
+    .describe("Which browser tab/session to crawl with (see browser_new_session). Omit for the default tab."),
 };
 
 const sitemapCrawlOutput = {
@@ -90,7 +94,7 @@ export function registerCrawlerTools(server: McpServer): void {
       inputSchema: sitemapCrawlInput,
       outputSchema: sitemapCrawlOutput,
     },
-    async ({ startUrl, maxPages }) => {
+    async ({ startUrl, maxPages, sessionId }) => {
       const pageLimit = maxPages ?? DEFAULT_MAX_PAGES;
       try {
         const normalizedStart = normalizeUrl(startUrl);
@@ -107,7 +111,7 @@ export function registerCrawlerTools(server: McpServer): void {
         const discovered: string[] = [];
         let truncated = false;
 
-        const page = await getPage();
+        const page = await getPage(sessionId);
 
         while (queue.length > 0) {
           if (visited.size >= pageLimit) {

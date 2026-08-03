@@ -27,7 +27,10 @@ disable-model-invocation: false
 5. **이슈 검수 방식**: `get_setting(key: "issueReviewMode")`로 캐시된 설정이 있는지 먼저 확인한다.
    - `found: true`이면 그 값(`"auto"` 또는 `"manual"`)을 그대로 쓰고 다시 묻지 않는다.
    - `found: false`이면 `AskUserQuestion`으로 한 번만 물어본다: 옵션 `["발견 즉시 자동 포함 (권장)", "이슈마다 확인받기"]`. 고른 값을 `"auto"`/`"manual"`로 매핑해 `save_setting(key: "issueReviewMode", value: ...)`로 저장한다. (설정은 언제든 사용자가 "이슈 검수 방식 바꿔줘"라고 하면 다시 물어보고 덮어써라.)
-6. 이 1단계는 최초 1회만 전부 수행한다. 이미 URL에 대한 자격증명과 템플릿 경로가 캐시되어 있으면, 이후 실행은 **URL만으로** 바로 2단계(사전 확인)부터 시작할 수 있어야 한다. (이슈 검수 방식 설정은 URL과 무관하게 한 번만 물어보면 계속 재사용된다.)
+6. **병렬 테스트 세션 수**: `get_setting(key: "parallelSessionCount")`로 캐시된 설정이 있는지 먼저 확인한다.
+   - `found: true`이면 그 값을 그대로 쓰고 다시 묻지 않는다.
+   - `found: false`이면 `AskUserQuestion`으로 한 번만 물어본다: 옵션 `["3개 세션 동시 진행 (권장)", "1개(기존처럼 순차 진행)", "5개 세션 동시 진행"]`. 고른 값을 3/1/5 중 하나의 숫자로 매핑해 `save_setting(key: "parallelSessionCount", value: ...)`로 저장한다. 이 값은 4단계에서 몇 개의 브라우저 탭으로 화면을 나눠 동시에 테스트할지를 결정한다 — 클수록 빠르지만 대상 서비스에 부하를 더 준다는 점을 질문 본문에 함께 안내해라.
+7. 이 1단계는 최초 1회만 전부 수행한다. 이미 URL에 대한 자격증명과 템플릿 경로가 캐시되어 있으면, 이후 실행은 **URL만으로** 바로 2단계(사전 확인)부터 시작할 수 있어야 한다. (이슈 검수 방식/병렬 세션 수 설정은 URL과 무관하게 한 번만 물어보면 계속 재사용된다.)
 
 ## 2단계 — 사전 확인 (비용·시간 안내, 사용자 승인 필수)
 
@@ -45,21 +48,26 @@ disable-model-invocation: false
 - 감지되면 자동 진행을 즉시 멈추고 사용자에게 "인증을 직접 완료해주세요"라고 알린다.
 - 사용자가 완료했다고 확인하면 자동으로 테스트를 재개한다.
 
-## 4단계 — 화면별 테스트 루프
+## 4단계 — 화면별 테스트 루프 (병렬 세션으로 그룹 분담)
 
-1. 2단계에서 확보한 화면 목록을 순회한다. 각 화면마다:
-   - `browser_navigate(url)`로 이동
-   - 체크리스트 항목에 따라 `browser_click`/`browser_type`으로 조작하고 `browser_screenshot`으로 증거를 남긴다 (이때 반환되는 `width`/`height`를 기억해둔다 — 아래 3번에서 필요)
+1. **화면을 그룹으로 나눈다**: 2단계에서 확보한 화면 목록을, 1단계 6번에서 캐시한 `parallelSessionCount`(N) 개의 그룹으로 나눈다.
+   - **PROVISIONAL 기본 전략**: URL 경로의 첫 세그먼트(예: `/menuA/...` → `menuA`)가 메뉴/섹션 구분으로 자연스러워 보이면 그 기준으로 그룹화한다. 그렇지 않으면(경로가 다 비슷하고 쿼리스트링만 다른 등) 화면 수를 N등분해서 균등 분배한다. 어느 쪽이든 확정된 사양이 아니니, 그룹 나눈 결과가 이상해 보이면 사용자에게 물어봐도 된다.
+2. **그룹마다 별도 세션(탭)을 연다**: 첫 번째 그룹은 로그인해둔 기본 세션(`sessionId` 생략)을 그대로 쓰고, 나머지 그룹은 그룹마다 `browser_new_session()`을 호출해 새 탭을 연다 — 같은 브라우저 컨텍스트를 공유하므로 **로그인 세션(쿠키)이 자동으로 이어지고, 재로그인이 필요 없다**.
+3. **그룹 간에는 병렬로, 그룹 안에서는 순서대로** 진행한다: 각 그룹의 "다음 화면 처리"를 같은 메시지 안에서 여러 도구 호출로 동시에 보내라(그룹마다 `sessionId`만 다르게) — 이래야 실제로 동시에 실행되어 전체 소요 시간이 줄어든다. 화면 하나씩:
+   - `browser_navigate(url, sessionId)`로 이동
+   - 체크리스트 항목에 따라 `browser_click`/`browser_type`으로 조작하고 `browser_screenshot(sessionId)`으로 증거를 남긴다 (이때 반환되는 `width`/`height`를 기억해둔다 — 아래 5번에서 필요)
    - 화면이 정상인지/이슈인지는 **네가 직접 판단**한다 (도구는 판단하지 않는다)
-2. **기본 체크리스트(provisional, 미확정)**: 설계 문서 6장에서 기본 체크리스트 항목은 아직 확정되지 않은 오픈 이슈다. 사용자가 별도 체크리스트를 지정하지 않았다면 아래를 잠정 기본값으로 사용하되, 반드시 "확정된 사양이 아니며 원하면 다른 체크리스트로 대체 가능"이라고 사용자에게 밝혀라:
+   - 세션이 어느 그룹/화면 것인지 헷갈리지 않도록, 이슈를 기록할 때 어느 화면(URL)에서 나온 것인지 항상 같이 남겨라.
+4. **기본 체크리스트(provisional, 미확정)**: 설계 문서 6장에서 기본 체크리스트 항목은 아직 확정되지 않은 오픈 이슈다. 사용자가 별도 체크리스트를 지정하지 않았다면 아래를 잠정 기본값으로 사용하되, 반드시 "확정된 사양이 아니며 원하면 다른 체크리스트로 대체 가능"이라고 사용자에게 밝혀라:
    - 클릭 반응 확인 (버튼/링크가 의도한 대로 반응하는지)
    - 폼 제출/파일 첨부 정상 동작 여부
    - 에러 메시지의 적절성
    - 레이아웃 정렬 문제 여부
-3. **이슈의 문제 위치 표시(problemArea)**: 이슈가 특정 UI 요소(입력창, 버튼 등)에 딸린 문제라면, 그 요소의 CSS 셀렉터로 `browser_bounding_box(selector)`를 호출해 픽셀 단위 위치(x, y, width, height)와 뷰포트 크기를 받아온다. 이 값을 아래처럼 0~1 비율로 변환해서 나중에 6단계 `generate_report`의 `issues[].problemArea`에 그대로 넘긴다 (도구가 계산해주지 않으니 네가 직접 나눗셈해라):
+5. **이슈의 문제 위치 표시(problemArea)**: 이슈가 특정 UI 요소(입력창, 버튼 등)에 딸린 문제라면, 그 요소의 CSS 셀렉터로 `browser_bounding_box(selector, sessionId)`를 호출해 픽셀 단위 위치(x, y, width, height)와 뷰포트 크기를 받아온다. 이 값을 아래처럼 0~1 비율로 변환해서 나중에 6단계 `generate_report`의 `issues[].problemArea`에 그대로 넘긴다 (도구가 계산해주지 않으니 네가 직접 나눗셈해라):
    - `xFraction = x / viewportWidth`, `yFraction = y / viewportHeight`
    - `widthFraction = width / viewportWidth`, `heightFraction = height / viewportHeight`
    - (`viewportWidth`/`viewportHeight`는 `browser_bounding_box`가 반환하거나, 직전 `browser_screenshot`의 `width`/`height`와 같은 값이다 — 스크린샷과 같은 스크롤 위치에서 측정했다는 전제.) 특정 요소를 콕 집기 애매한 레이아웃/텍스트 이슈라면 `problemArea` 없이 넘어가도 된다(선택 사항).
+6. 모든 그룹의 화면을 다 처리했으면, 기본 세션이 아닌 나머지 세션들은 `browser_close_session(sessionId)`으로 정리한다(필수는 아니다 — 정리 안 해도 서버 프로세스 종료 시 자동으로 닫힌다).
 
 ## 5단계 — 이슈 정리 (1단계에서 캐시된 `issueReviewMode` 설정에 따라 분기)
 
@@ -74,7 +82,7 @@ disable-model-invocation: false
 
 1. 5단계 결과 최종 확정된 이슈 목록을 사용한다 (`auto` 모드면 전부, `manual` 모드면 "포함"으로 확정된 것만).
 2. **계정 단위로 보고서를 분리**한다 — `generate_report`는 한 번 호출에 계정 1개 보고서 1개만 만든다. 계정이 여러 개면 계정 수만큼 반복 호출해야 한다(도구가 다중 계정을 알아서 나눠주지 않는다).
-3. 각 계정마다 `generate_report(templatePath, outputPath?, accountName?, issues[])`를 호출한다. 이때 `issues`는 각 항목이 `breadcrumb`/`screenshotPath`/`problem`/`improvement` 4개 필드를 가진 배열이어야 하고, 4단계 3번에서 계산해둔 `problemArea`가 있으면 그 항목도 함께 넘긴다(선택 필드).
+3. 각 계정마다 `generate_report(templatePath, outputPath?, accountName?, issues[])`를 호출한다. 이때 `issues`는 각 항목이 `breadcrumb`/`screenshotPath`/`problem`/`improvement` 4개 필드를 가진 배열이어야 하고, 4단계 5번에서 계산해둔 `problemArea`가 있으면 그 항목도 함께 넘긴다(선택 필드).
 4. 파일명은 2단계로 물어본다 (자유 텍스트 "Enter 시 기본값" 방식이 아니라):
    1. 먼저 `AskUserQuestion`으로 Y/N을 물어본다: 질문 본문에 계산해둔 기본 파일명(`템플릿이름_계정명_날짜`, 계정이 여러 개면 뒤에 계정명이 자동으로 붙는다는 것까지 포함)을 보여주고, 옵션은 `["기본값 사용 (권장)", "직접 입력"]`.
    2. **"기본값 사용"을 선택하면** 그 기본값을 그대로 쓴다.
@@ -97,16 +105,18 @@ disable-model-invocation: false
 |---|---|---|---|
 | `get_credentials` | serviceUrl | found, loginId, password | 없으면 found:false (에러 아님) |
 | `save_credentials` | serviceUrl, loginId, password | success | |
-| `get_setting` | key | found, value | 없으면 found:false (에러 아님). 예: `issueReviewMode` |
+| `get_setting` | key | found, value | 없으면 found:false (에러 아님). 예: `issueReviewMode`, `parallelSessionCount` |
 | `save_setting` | key, value | success | 비밀정보 아닌 설정용 (keytar 아님, 평문 JSON 캐시) |
 | `find_local_file` | filename | found, path, matchCount | 전체 경로가 아닌 파일명 기반 검색 |
-| `sitemap_crawl` | startUrl, maxPages? | urls, totalCount, truncated | maxPages 기본값(현재 50)은 provisional |
+| `sitemap_crawl` | startUrl, maxPages?, sessionId? | urls, totalCount, truncated | maxPages 기본값(현재 50)은 provisional |
 | `estimate_cost` | screenCount, checklistItemCount? | estimatedMinutes, estimatedCostKrw, assumptions | 산출 공식·기본 체크리스트 개수는 provisional |
-| `browser_navigate` | url | success, url, title, status | |
-| `browser_click` | selector, timeoutMs? | success, url | |
-| `browser_type` | selector, text, timeoutMs? | success | |
-| `browser_screenshot` | path? | success, path, width, height | width/height는 problemArea 비율 계산에 사용 |
-| `browser_bounding_box` | selector | success, x, y, width, height, viewportWidth, viewportHeight | 문제 요소의 픽셀 위치 — 판단 없이 사실만 반환 |
+| `browser_new_session` | sessionId? | success, sessionId | 같은 브라우저 컨텍스트 내 새 탭 — 로그인/쿠키 자동 공유 |
+| `browser_close_session` | sessionId | success | |
+| `browser_navigate` | url, sessionId? | success, url, title, status | sessionId 생략 시 기본 탭 |
+| `browser_click` | selector, timeoutMs?, sessionId? | success, url | |
+| `browser_type` | selector, text, timeoutMs?, sessionId? | success | |
+| `browser_screenshot` | path?, sessionId? | success, path, width, height | width/height는 problemArea 비율 계산에 사용 |
+| `browser_bounding_box` | selector, sessionId? | success, x, y, width, height, viewportWidth, viewportHeight | 문제 요소의 픽셀 위치 — 판단 없이 사실만 반환 |
 | `open_in_viewer` | filePath | success | |
 | `generate_report` | templatePath, outputPath?, accountName?, issues[] (각 항목에 선택적 problemArea) | outputPath, slideCount | 호출 1회 = 계정 1개 보고서 1개. problemArea 있으면 스크린샷 위에 배경색 없는 테두리 도형으로 표시 |
 

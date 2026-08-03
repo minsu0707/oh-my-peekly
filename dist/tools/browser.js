@@ -1,29 +1,37 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { z } from "zod";
 /**
- * Single lazily-created browser session shared by all browser_* tools.
- *
- * MVP scope: one browser / one page. Multi-session management is
- * intentionally out of scope for now (see peekly-mcp-core agent charter) —
- * if concurrent sessions become necessary, that's a follow-up design change,
- * not something to speculatively build here.
+ * One shared browser + one shared context (so all sessions/tabs see the
+ * same cookies — logging in once carries over to every tab), but multiple
+ * pages ("sessions") within that context, keyed by sessionId. This lets
+ * the caller test several menus/screens concurrently in separate tabs
+ * instead of one screen at a time in a single page, while still sharing
+ * the logged-in state. `DEFAULT_SESSION_ID` preserves the pre-multi-session
+ * single-page behavior for callers that never pass a sessionId.
  */
+const DEFAULT_SESSION_ID = "default";
 let browserInstance;
-let pageInstance;
+let contextInstance;
+const pages = new Map();
 let cleanupRegistered = false;
-async function getPage() {
+async function getPage(sessionId = DEFAULT_SESSION_ID) {
     if (!browserInstance) {
         browserInstance = await chromium.launch({ headless: true });
     }
-    if (!pageInstance || pageInstance.isClosed()) {
-        const context = await browserInstance.newContext();
-        pageInstance = await context.newPage();
+    if (!contextInstance) {
+        contextInstance = await browserInstance.newContext();
+    }
+    let page = pages.get(sessionId);
+    if (!page || page.isClosed()) {
+        page = await contextInstance.newPage();
+        pages.set(sessionId, page);
     }
     registerCleanup();
-    return pageInstance;
+    return page;
 }
 /**
  * Shared accessor for other tool modules (e.g. the sitemap crawler) that need
@@ -31,11 +39,12 @@ async function getPage() {
  * separate browser. Crawling is expected to happen after login, so it must
  * see the same cookies/session as the browser_* tools above.
  */
-export { getPage };
+export { getPage, DEFAULT_SESSION_ID };
 async function closeBrowser() {
     const browser = browserInstance;
     browserInstance = undefined;
-    pageInstance = undefined;
+    contextInstance = undefined;
+    pages.clear();
     if (browser) {
         try {
             await browser.close();
@@ -66,8 +75,15 @@ function textResult(payload, isError = false) {
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
 }
+const sessionIdField = z
+    .string()
+    .optional()
+    .describe(`Which browser tab/session to act on. Omit to use the default single-tab session (${DEFAULT_SESSION_ID}) — ` +
+    "existing single-session callers don't need to change. Use browser_new_session to open additional " +
+    "tabs (they share login/cookies with the default tab) for testing several screens concurrently.");
 const navigateInput = {
     url: z.string().describe("Navigate the shared browser page to this URL."),
+    sessionId: sessionIdField,
 };
 const navigateOutput = {
     success: z.boolean(),
@@ -84,6 +100,7 @@ const clickInput = {
         .positive()
         .optional()
         .describe("Optional Playwright action timeout in milliseconds."),
+    sessionId: sessionIdField,
 };
 const clickOutput = {
     success: z.boolean(),
@@ -99,6 +116,7 @@ const typeInput = {
         .positive()
         .optional()
         .describe("Optional Playwright action timeout in milliseconds."),
+    sessionId: sessionIdField,
 };
 const typeOutput = {
     success: z.boolean(),
@@ -109,6 +127,7 @@ const screenshotInput = {
         .string()
         .optional()
         .describe("Optional absolute file path to save the PNG screenshot to. If omitted, a file is created under the OS temp directory."),
+    sessionId: sessionIdField,
 };
 const screenshotOutput = {
     success: z.boolean(),
@@ -119,6 +138,7 @@ const screenshotOutput = {
 };
 const boundingBoxInput = {
     selector: z.string().describe("CSS selector of the element to measure."),
+    sessionId: sessionIdField,
 };
 const boundingBoxOutput = {
     success: z.boolean(),
@@ -130,15 +150,33 @@ const boundingBoxOutput = {
     viewportHeight: z.number().optional(),
     error: z.string().optional(),
 };
+const newSessionInput = {
+    sessionId: z
+        .string()
+        .optional()
+        .describe("Identifier to give the new tab/session. If omitted, one is auto-generated and returned."),
+};
+const newSessionOutput = {
+    success: z.boolean(),
+    sessionId: z.string().optional(),
+    error: z.string().optional(),
+};
+const closeSessionInput = {
+    sessionId: z.string().describe("Identifier of the tab/session to close (from browser_new_session)."),
+};
+const closeSessionOutput = {
+    success: z.boolean(),
+    error: z.string().optional(),
+};
 export function registerBrowserTools(server) {
     server.registerTool("browser_navigate", {
         title: "Navigate browser",
         description: "Navigate the shared browser page to the given URL and report the resulting URL, page title, and HTTP status. Does not judge whether the page is correct — the caller decides that.",
         inputSchema: navigateInput,
         outputSchema: navigateOutput,
-    }, async ({ url }) => {
+    }, async ({ url, sessionId }) => {
         try {
-            const page = await getPage();
+            const page = await getPage(sessionId);
             const response = await page.goto(url, { waitUntil: "load" });
             const payload = {
                 success: true,
@@ -157,9 +195,9 @@ export function registerBrowserTools(server) {
         description: "Click the first element matching a CSS selector on the shared browser page and report success/failure plus the current URL after the click.",
         inputSchema: clickInput,
         outputSchema: clickOutput,
-    }, async ({ selector, timeoutMs }) => {
+    }, async ({ selector, timeoutMs, sessionId }) => {
         try {
-            const page = await getPage();
+            const page = await getPage(sessionId);
             await page.click(selector, timeoutMs ? { timeout: timeoutMs } : undefined);
             return textResult({ success: true, url: page.url() });
         }
@@ -172,9 +210,9 @@ export function registerBrowserTools(server) {
         description: "Type text into the first element matching a CSS selector on the shared browser page and report success/failure.",
         inputSchema: typeInput,
         outputSchema: typeOutput,
-    }, async ({ selector, text, timeoutMs }) => {
+    }, async ({ selector, text, timeoutMs, sessionId }) => {
         try {
-            const page = await getPage();
+            const page = await getPage(sessionId);
             await page.fill(selector, text, timeoutMs ? { timeout: timeoutMs } : undefined);
             return textResult({ success: true });
         }
@@ -187,9 +225,9 @@ export function registerBrowserTools(server) {
         description: "Capture a PNG screenshot of the current shared browser page and save it to disk, returning the saved file path.",
         inputSchema: screenshotInput,
         outputSchema: screenshotOutput,
-    }, async ({ path: outputPath }) => {
+    }, async ({ path: outputPath, sessionId }) => {
         try {
-            const page = await getPage();
+            const page = await getPage(sessionId);
             const targetPath = outputPath ?? (await defaultScreenshotPath());
             await fs.mkdir(path.dirname(targetPath), { recursive: true });
             await page.screenshot({ path: targetPath, type: "png" });
@@ -218,9 +256,9 @@ export function registerBrowserTools(server) {
             "not judge or draw anything itself.",
         inputSchema: boundingBoxInput,
         outputSchema: boundingBoxOutput,
-    }, async ({ selector }) => {
+    }, async ({ selector, sessionId }) => {
         try {
-            const page = await getPage();
+            const page = await getPage(sessionId);
             const box = await page.locator(selector).first().boundingBox();
             if (!box) {
                 return textResult({ success: false, error: `element not visible or not found: ${selector}` }, true);
@@ -235,6 +273,44 @@ export function registerBrowserTools(server) {
                 viewportWidth: viewport?.width,
                 viewportHeight: viewport?.height,
             });
+        }
+        catch (error) {
+            return textResult({ success: false, error: errorMessage(error) }, true);
+        }
+    });
+    server.registerTool("browser_new_session", {
+        title: "Open a new browser tab/session",
+        description: "Open a new tab (Playwright page) within the same shared browser context, so it shares login/cookies " +
+            "with the default tab and any other open sessions. Use this to test several screens/menus " +
+            "concurrently — call the other browser_* tools with the returned sessionId to act on this tab " +
+            "specifically, in parallel with other sessions' tool calls.",
+        inputSchema: newSessionInput,
+        outputSchema: newSessionOutput,
+    }, async ({ sessionId }) => {
+        try {
+            const resolvedId = sessionId ?? randomUUID();
+            await getPage(resolvedId);
+            return textResult({ success: true, sessionId: resolvedId });
+        }
+        catch (error) {
+            return textResult({ success: false, error: errorMessage(error) }, true);
+        }
+    });
+    server.registerTool("browser_close_session", {
+        title: "Close a browser tab/session",
+        description: "Close a tab/session previously opened with browser_new_session, freeing its resources. Closing the " +
+            `default session ("${DEFAULT_SESSION_ID}") is allowed — a fresh one is created automatically the next ` +
+            "time a browser_* tool is called without a sessionId.",
+        inputSchema: closeSessionInput,
+        outputSchema: closeSessionOutput,
+    }, async ({ sessionId }) => {
+        try {
+            const page = pages.get(sessionId);
+            if (page) {
+                await page.close();
+                pages.delete(sessionId);
+            }
+            return textResult({ success: true });
         }
         catch (error) {
             return textResult({ success: false, error: errorMessage(error) }, true);
