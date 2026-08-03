@@ -1,6 +1,6 @@
 {
   "name": "peekly-mcp",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Peekly MCP server: browser automation, sitemap crawling, PPT report generation, and credential tools for Claude Code / Codex QA workflows",
   "type": "module",
   "license": "UNLICENSED",
