@@ -6,10 +6,12 @@
   "license": "UNLICENSED",
   "private": true,
   "bin": {
-    "peekly-mcp": "dist/index.js"
+    "peekly-mcp": "dist/index.js",
+    "peekly": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "engines": {
     "node": ">=20"
