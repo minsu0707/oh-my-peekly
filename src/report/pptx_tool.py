@@ -58,13 +58,14 @@ copying (and rId-remapping) the template slide's non-layout relationships
 that the copied shapes' r:embed/r:id references keep resolving correctly
 in the new slide part.
 
-Known limitation: dropping the original template slide from the slide
-list (`_remove_slide_at`) removes it from the presentation's render order
-but does not garbage-collect its now-unreferenced XML part from the
-.pptx zip package. This is harmless (the file still opens fine in
-PowerPoint; unused parts/relationships are valid per the OPC spec) but
-leaves a small amount of dead weight in the output file. Acceptable for
-this MVP.
+`_remove_slide_at` drops both the sldIdLst entry and the presentation
+part's relationship to the slide part, so the removed template slide's
+XML part becomes unreachable and is excluded by Package.iter_parts() on
+save — see its docstring. An earlier version only removed the sldIdLst
+entry, which left the part reachable and caused the next add_slide() to
+reuse its partname (e.g. slide3.xml), producing two same-named zip
+entries and a PowerPoint "repair" prompt on open. Confirmed via a real
+generated report opened in PowerPoint.
 """
 from __future__ import annotations
 
@@ -127,11 +128,25 @@ def _duplicate_slide(prs: Presentation, template_slide) -> Any:
 
 
 def _remove_slide_at(prs: Presentation, index: int) -> None:
-    """Drop the slide currently at `index` from the presentation's slide
-    order. See module docstring for the known part-GC limitation."""
+    """Fully drop the slide currently at `index`: remove it from the slide
+    order AND drop the presentation part's relationship to its slide part.
+
+    Removing only the sldIdLst entry (the once-documented "acceptable"
+    shortcut) leaves the slide part reachable via prs.part.rels, so
+    Package.iter_parts()/next_partname() still counts it. The next
+    add_slide() then picks the same partname (e.g. slide3.xml) for a new
+    slide, and both the orphaned original and the new slide get serialized
+    under that identical zip entry name on save — which PowerPoint detects
+    as corruption and offers to "repair" on open. Dropping the relationship
+    here makes the old part unreachable so it is correctly excluded from
+    iter_parts() and never written.
+    """
     id_list = prs.slides._sldIdLst
     sld_ids = list(id_list)
-    id_list.remove(sld_ids[index])
+    sld_id = sld_ids[index]
+    rId = sld_id.rId
+    id_list.remove(sld_id)
+    prs.part.rels.pop(rId)
 
 
 def _replace_text_tokens(slide, mapping: dict[str, str]) -> None:
