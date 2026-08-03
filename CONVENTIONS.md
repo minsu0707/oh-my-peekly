@@ -73,7 +73,13 @@ scope 예시: `mcp-core`, `report`, `platform`, `skill`, `release`
 - 매 커밋마다 릴리즈를 끊지 않는다 — 기능/수정 커밋을 쌓다가 의미 있는 단위에서 릴리즈한다.
 - 릴리즈 커밋 이후 태그를 포함해 원격(`origin`)에 push한다.
 
-## 8. 미확정 설계 사항 처리 방침
+## 8. 빌드 산출물(`dist/`) 커밋 — 임시 조치
+
+npm 레지스트리에 publish하지 않고(사내 전용) GitHub에서 바로 `npm install -g git+https://...`로 설치하는 방식을 쓰기 때문에, **`dist/`를 예외적으로 git에 커밋한다.** git 의존성 설치 시 `prepare` 스크립트로 devDependencies(`typescript` 등)를 빌드하게 하는 표준 방식을 시도했으나 이 환경의 npm에서 git-dep 준비 단계가 실패해서(빌드 샌드박스에 devDependencies가 제대로 안 잡힘), 대신 빌드된 `dist/`를 그대로 커밋해 설치 시 빌드가 아예 필요 없게 만들었다.
+
+**따라서 `src/`를 수정하는 모든 커밋은 반드시 그 안에 최신 `npm run build` 결과물(`dist/`)도 함께 포함해야 한다.** `dist/`가 stale하면 설치된 패키지가 실제 소스와 어긋난다. 실제 npm publish나 CI 빌드 파이프라인이 생기면 이 조치는 걷어내고 `dist/`를 다시 `.gitignore`에 넣어야 한다.
+
+## 9. 미확정 설계 사항 처리 방침
 
 설계문서 6장의 항목(MCP 도구 세부 인터페이스, 비용 산출 공식, 크롤링 범위 제한, 기본 체크리스트, SKILL.md/AGENTS.md 단일 소스화 방법, 이력 비교 여부)은 아직 확정되지 않았다. 이 항목을 구현할 때는:
 
