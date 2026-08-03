@@ -44,16 +44,11 @@ claude mcp add peekly -s user -- npx peekly-mcp && \
 peekly install-skill
 ```
 
-**Windows PowerShell:**
-```powershell
-git clone https://github.com/minsu0707/oh-my-peekly.git
-cd oh-my-peekly
-npm install
-npm install -g .
-pip install -r requirements.txt
-claude mcp add peekly -s user -- npx peekly-mcp
-peekly install-skill
+**Windows (명령 프롬프트 `cmd.exe`):**
+```bat
+git clone https://github.com/minsu0707/oh-my-peekly.git && cd oh-my-peekly && npm install && npm install -g . && pip install -r requirements.txt && claude mcp add peekly -s user -- npx peekly-mcp && peekly install-skill
 ```
+Windows에서는 **PowerShell이 아니라 명령 프롬프트(cmd)**를 쓰세요. PowerShell 5.1(윈도우 기본 버전)은 명령을 `&&`로 잇는 걸 지원하지 않아서, 위 한 줄짜리 명령이 중간에 실패해도 멈추지 않고 계속 진행해버릴 수 있습니다. cmd는 `&&`를 지원해서 한 줄 그대로 붙여넣으면 실패 시 그 자리에서 멈춥니다. (시작 메뉴에서 "cmd" 또는 "명령 프롬프트" 검색해서 열면 됩니다.)
 
 끝까지 에러 없이 실행되면 설치 완료입니다. 마지막 줄에 `Peekly skill installed to ...` 같은 문구가 보이면 성공입니다.
 
