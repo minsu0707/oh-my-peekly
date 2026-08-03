@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,13 +24,16 @@ function copyDirRecursive(src, dest) {
     }
 }
 /**
- * Copies the bundled `peekly` skill into the current project's
- * `.claude/skills/peekly/`. PROVISIONAL: only installs at project scope
- * (cwd), not personal scope (~/.claude/skills) — the design doc doesn't
- * specify which, and project scope matches how this repo tests itself
- * (see CONVENTIONS.md section 8).
+ * Copies the bundled `peekly` skill into the user's PERSONAL skill
+ * directory (`~/.claude/skills/peekly/`), not a per-project one. This is
+ * a one-time, install-once-use-everywhere setup: personal-scope skills
+ * apply across all of the user's projects (personal scope also overrides
+ * project scope, so this still wins even in a project that happens to
+ * have its own `.claude/skills/peekly`). Pass `--project` to install into
+ * the current directory's `.claude/skills/peekly/` instead, for the rare
+ * case of a project-pinned override.
  */
-function installSkill() {
+function installSkill(args) {
     const skillName = "peekly";
     const source = path.join(SKILLS_SOURCE_ROOT, skillName);
     if (!fs.existsSync(source)) {
@@ -37,19 +41,23 @@ function installSkill() {
         process.exitCode = 1;
         return;
     }
-    const targetDir = path.join(process.cwd(), ".claude", "skills", skillName);
+    const projectScope = args.includes("--project");
+    const skillsRoot = projectScope
+        ? path.join(process.cwd(), ".claude", "skills")
+        : path.join(os.homedir(), ".claude", "skills");
+    const targetDir = path.join(skillsRoot, skillName);
     copyDirRecursive(source, targetDir);
     console.log(`Peekly skill installed to ${targetDir}`);
-    console.log("If .claude/skills/ didn't already exist in this project, restart Claude Code (or start a new session) so it picks up the new directory, then use /peekly.");
+    console.log(`If ${skillsRoot} didn't already exist, restart Claude Code (or start a new session) so it picks up the new directory, then use /peekly.`);
 }
 function main() {
-    const command = process.argv[2];
+    const [command, ...rest] = process.argv.slice(2);
     switch (command) {
         case "install-skill":
-            installSkill();
+            installSkill(rest);
             break;
         default:
-            console.error(`Unknown command: ${command ?? "(none)"}\nUsage: peekly install-skill`);
+            console.error(`Unknown command: ${command ?? "(none)"}\nUsage: peekly install-skill [--project]`);
             process.exitCode = 1;
     }
 }
