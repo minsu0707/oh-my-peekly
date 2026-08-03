@@ -227,7 +227,11 @@ def _generate_report(job: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> int:
     try:
-        raw = sys.stdin.read()
+        # Read stdin as raw bytes and decode as UTF-8 explicitly — sys.stdin's
+        # default text-mode encoding follows the OS locale (e.g. cp949 on
+        # Korean Windows), which silently mangles the UTF-8 bytes Node writes
+        # for non-ASCII (Korean) issue text into invalid lone surrogates.
+        raw = sys.stdin.buffer.read().decode("utf-8")
         job = json.loads(raw)
     except json.JSONDecodeError as e:
         print(json.dumps({"success": False, "error": f"invalid JSON on stdin: {e}"}))
