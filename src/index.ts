@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerBrowserTools } from "./tools/browser.js";
 import { registerCrawlerTools } from "./tools/crawler.js";
 import { registerCostTools } from "./tools/cost.js";
+import { registerPlatformTools } from "./tools/platform.js";
 import { registerReportTools } from "./tools/report.js";
 
 const server = new McpServer({
@@ -13,6 +14,7 @@ const server = new McpServer({
 registerBrowserTools(server);
 registerCrawlerTools(server);
 registerCostTools(server);
+registerPlatformTools(server);
 registerReportTools(server);
 
 async function main() {
