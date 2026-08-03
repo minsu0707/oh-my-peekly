@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerBrowserTools } from "./tools/browser.js";
+import { registerCrawlerTools } from "./tools/crawler.js";
+import { registerCostTools } from "./tools/cost.js";
 
 const server = new McpServer({
   name: "peekly-mcp",
@@ -8,6 +10,8 @@ const server = new McpServer({
 });
 
 registerBrowserTools(server);
+registerCrawlerTools(server);
+registerCostTools(server);
 
 async function main() {
   const transport = new StdioServerTransport();

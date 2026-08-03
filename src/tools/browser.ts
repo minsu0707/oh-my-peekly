@@ -30,6 +30,14 @@ async function getPage(): Promise<Page> {
   return pageInstance;
 }
 
+/**
+ * Shared accessor for other tool modules (e.g. the sitemap crawler) that need
+ * to reuse the same logged-in browser session/page instead of spinning up a
+ * separate browser. Crawling is expected to happen after login, so it must
+ * see the same cookies/session as the browser_* tools above.
+ */
+export { getPage };
+
 async function closeBrowser(): Promise<void> {
   const browser = browserInstance;
   browserInstance = undefined;
