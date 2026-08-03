@@ -18,6 +18,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.mkdirSync('dist/report',{recursive:true});fs.copyFileSync('src/report/pptx_tool.py','dist/report/pptx_tool.py')\"",
+    "prepare": "npm run build",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "release": "commit-and-tag-version"
