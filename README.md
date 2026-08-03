@@ -7,33 +7,76 @@
 
 ## 사전 준비물
 
-- Node.js 20 이상 + npm
-- Git
-- Python 3 + pip (PPT 보고서 생성용 `python-pptx`)
-- Claude Code CLI (`claude` 명령)
+설치를 시작하기 전에 아래 4가지가 컴퓨터에 준비되어 있어야 합니다. 이미 개발 환경을 쓰고 계시다면 대부분 설치되어 있을 가능성이 높습니다. 터미널(명령 프롬프트/PowerShell/터미널 앱)을 열어서 하나씩 확인해보세요.
+
+1. **Node.js 20 이상** — Peekly 자체가 이 위에서 돌아갑니다.
+   ```bash
+   node -v
+   ```
+   `v20`으로 시작하는 버전이 나오면 OK. `command not found` 같은 에러가 나오면 [nodejs.org](https://nodejs.org)에서 LTS 버전을 설치하세요. (npm은 Node.js를 설치하면 같이 따라옵니다.)
+2. **Git** — GitHub에서 코드를 내려받는 데 필요합니다.
+   ```bash
+   git --version
+   ```
+   버전이 나오면 OK. 안 되어 있으면 [git-scm.com](https://git-scm.com)에서 설치하세요.
+3. **Python 3 + pip** — PPT 보고서를 만들 때 씁니다.
+   ```bash
+   python --version
+   pip --version
+   ```
+   (macOS/Linux는 `python3`, `pip3`인 경우가 많습니다.) 둘 다 버전이 나와야 합니다. 안 되어 있으면 [python.org](https://python.org)에서 설치하세요.
+4. **Claude Code** — 이미 이 글을 읽고 계신다면 준비되어 있는 것입니다 (`claude` 명령으로 실행하는 그 프로그램).
+
+넷 다 확인됐으면 아래로 넘어가세요.
 
 ## 설치
 
-아래를 그대로 복사해서 순서대로 실행하세요.
+터미널에서 **한 줄씩 순서대로** 복사해서 실행하세요. 이미 어딘가에 이 프로젝트를 받아둔 폴더가 있다면(이 저장소를 보고 계신 것 자체가 그 폴더일 수 있습니다), `git clone`은 건너뛰고 터미널에서 그 폴더로 `cd`만 한 뒤 2단계부터 이어서 하면 됩니다.
 
+**1단계 — 저장소 받기 + 폴더 이동**
 ```bash
 git clone https://github.com/minsu0707/oh-my-peekly.git
 cd oh-my-peekly
+```
+`git clone`은 GitHub에 있는 코드를 내 컴퓨터로 복사해오는 명령입니다. `cd oh-my-peekly`는 방금 받은 폴더 안으로 들어가는 명령이고요. **이 뒤의 모든 명령은 이 폴더 안에서 실행되어야 합니다.**
+
+**2단계 — 프로그램이 필요로 하는 부품(의존성) 설치**
+```bash
 npm install
+```
+Peekly가 내부적으로 쓰는 라이브러리들(브라우저 자동화, PPT 생성 등)을 받는 단계입니다. 1~2분 정도 걸릴 수 있고, 중간에 `npm warn` 같은 노란 경고 몇 줄이 떠도 정상입니다(에러가 아니라 경고입니다). 마지막에 `found 0 vulnerabilities` 비슷한 문구가 보이면 성공입니다.
+
+**3단계 — 컴퓨터 어디서나 쓸 수 있게 전역 설치**
+```bash
 npm install -g .
+```
+방금 받은 이 폴더를 컴퓨터 전체에서 `peekly-mcp`, `peekly` 명령으로 부를 수 있게 등록하는 단계입니다. **2단계를 먼저 하지 않고 이 명령만 실행하면 제대로 동작하지 않으니, 반드시 순서대로** 하세요.
+
+**4단계 — PPT 생성에 필요한 Python 라이브러리 설치**
+```bash
 pip install -r requirements.txt
 ```
 
-그리고 Peekly를 사용할 프로젝트(또는 아무 폴더)에서:
+여기까지 하면 컴퓨터에 설치가 끝난 것입니다. 잘 됐는지 확인하려면:
+```bash
+peekly-mcp --help
+```
+처럼 명령이 "command not found" 없이 반응하면 (에러 메시지가 나오더라도 "찾을 수 없다"는 에러만 아니면) 설치가 된 것입니다.
+
+**5단계 — Claude Code에 Peekly를 실제로 연결하기**
+
+이제부터는 Peekly를 사용하고 싶은 프로젝트 폴더로 이동해서(위 1~4단계와는 다른, 여러분이 QA를 돌리고 싶은 그 프로젝트) 아래 두 줄을 실행하세요.
 
 ```bash
 claude mcp add peekly -- npx peekly-mcp
 peekly install-skill
 ```
 
-- `claude mcp add`는 Claude Code에 Peekly MCP 서버를 등록합니다 (`claude mcp list`로 `peekly ... ✔ Connected` 확인 가능).
-- `peekly install-skill`은 `/peekly` 명령을 그 프로젝트의 `.claude/skills/peekly/`에 설치합니다.
-- **`.claude/skills/` 폴더가 그 프로젝트에 원래 없었다면**, Claude Code를 재시작(또는 새 세션 시작)해야 `/peekly`가 인식됩니다. 이미 있었다면 재시작 없이 바로 됩니다.
+- 첫 번째 줄: Claude Code에게 "Peekly라는 도구를 쓸 수 있다"고 알려주는 등록 과정입니다. `claude mcp list`를 실행했을 때 `peekly ... ✔ Connected`라고 나오면 성공입니다.
+- 두 번째 줄: `/peekly` 명령 자체를 이 프로젝트에 설치합니다.
+- **주의**: 이 프로젝트에 `.claude/skills/` 폴더가 원래 없었다면, Claude Code를 한 번 껐다 켜야(또는 새 세션을 시작해야) `/peekly` 명령이 인식됩니다. 이미 있던 폴더라면 바로 됩니다.
+
+이제 설치가 전부 끝났습니다 — 아래 "사용법"으로 넘어가시면 됩니다.
 
 ## 사용법
 
