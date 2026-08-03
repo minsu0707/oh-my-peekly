@@ -40,11 +40,24 @@ function defaultOutputPath(templatePath, accountName) {
     const parts = [base, accountName, date].filter((p) => typeof p === "string" && p.length > 0);
     return path.join(dir, `${parts.join("_")}.pptx`);
 }
+const problemAreaSchema = z
+    .object({
+    xFraction: z.number().min(0).max(1).describe("Left edge of the problem area, as a fraction (0-1) of the screenshot's width."),
+    yFraction: z.number().min(0).max(1).describe("Top edge of the problem area, as a fraction (0-1) of the screenshot's height."),
+    widthFraction: z.number().min(0).max(1).describe("Width of the problem area, as a fraction (0-1) of the screenshot's width."),
+    heightFraction: z.number().min(0).max(1).describe("Height of the problem area, as a fraction (0-1) of the screenshot's height."),
+})
+    .describe("Optional bounding box marking exactly where the problem is on the screenshot, as fractions (0-1) of the " +
+    "screenshot image's own width/height — NOT pixels, so it scales correctly regardless of how the " +
+    "screenshot placeholder is sized on the slide. Typically computed from browser_bounding_box's pixel " +
+    "box divided by browser_screenshot's width/height. When provided, a no-fill outlined rectangle is drawn " +
+    "over the screenshot at this location; when omitted, no annotation is drawn.");
 const issueSchema = z.object({
     breadcrumb: z.string().describe("Path breadcrumb text for this issue, e.g. 'Home > List > Detail'."),
     screenshotPath: z.string().describe("Absolute path to the screenshot image file for this issue."),
     problem: z.string().describe("Description of the problem found."),
     improvement: z.string().describe("Suggested improvement/fix."),
+    problemArea: problemAreaSchema.optional(),
 });
 const generateReportInput = {
     templatePath: z
@@ -99,9 +112,12 @@ export function registerReportTools(server) {
         description: "Generate one .pptx QA report for one account from a read-only template by delegating to a Python " +
             "subprocess (python-pptx). Clones the template's issue-slide once per confirmed issue — PROVISIONAL " +
             "assumption: slide index 1 is the issue-slide template, after a cover slide at index 0 — substituting " +
-            "{{breadcrumb}}/{{problem}}/{{improvement}} text tokens and swapping the Picture shape named " +
+            "{{breadcrumb}}/{{problem}}/{{improvement}} text tokens (auto-shrunk to fit their placeholder box, " +
+            "never resized, so they don't grow to overlap the screenshot) and swapping the Picture shape named " +
             "'screenshot' for each issue's screenshot image (a missing 'screenshot' shape is a hard error, not a " +
-            "silent skip). The template file itself is never opened for writing. Call once per account only.",
+            "silent skip). When an issue includes problemArea, a no-fill outlined rectangle is drawn over that " +
+            "part of the screenshot to point out exactly where the problem is. The template file itself is never " +
+            "opened for writing. Call once per account only.",
         inputSchema: generateReportInput,
         outputSchema: generateReportOutput,
     }, async ({ templatePath, outputPath, accountName, issues }) => {

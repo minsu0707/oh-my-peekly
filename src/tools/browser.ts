@@ -130,6 +130,23 @@ const screenshotInput = {
 const screenshotOutput = {
   success: z.boolean(),
   path: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  error: z.string().optional(),
+};
+
+const boundingBoxInput = {
+  selector: z.string().describe("CSS selector of the element to measure."),
+};
+
+const boundingBoxOutput = {
+  success: z.boolean(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  viewportWidth: z.number().optional(),
+  viewportHeight: z.number().optional(),
   error: z.string().optional(),
 };
 
@@ -215,7 +232,56 @@ export function registerBrowserTools(server: McpServer): void {
         const targetPath = outputPath ?? (await defaultScreenshotPath());
         await fs.mkdir(path.dirname(targetPath), { recursive: true });
         await page.screenshot({ path: targetPath, type: "png" });
-        return textResult({ success: true, path: targetPath });
+        // Default (non-fullPage) screenshots capture exactly the viewport, so
+        // viewport size doubles as the saved image's pixel dimensions —
+        // callers use this to convert an element's boundingBox() (from
+        // browser_bounding_box) into fractions of the screenshot for
+        // annotating a report slide.
+        const viewport = page.viewportSize();
+        return textResult({
+          success: true,
+          path: targetPath,
+          width: viewport?.width,
+          height: viewport?.height,
+        });
+      } catch (error) {
+        return textResult({ success: false, error: errorMessage(error) }, true);
+      }
+    }
+  );
+
+  server.registerTool(
+    "browser_bounding_box",
+    {
+      title: "Get element bounding box",
+      description:
+        "Return the pixel bounding box (x, y, width, height, relative to the top-left of the viewport) of " +
+        "the first element matching a CSS selector, plus the current viewport size. Intended for computing " +
+        "where on a browser_screenshot image an issue is located (e.g. to annotate a report slide) — does " +
+        "not judge or draw anything itself.",
+      inputSchema: boundingBoxInput,
+      outputSchema: boundingBoxOutput,
+    },
+    async ({ selector }) => {
+      try {
+        const page = await getPage();
+        const box = await page.locator(selector).first().boundingBox();
+        if (!box) {
+          return textResult(
+            { success: false, error: `element not visible or not found: ${selector}` },
+            true
+          );
+        }
+        const viewport = page.viewportSize();
+        return textResult({
+          success: true,
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          viewportWidth: viewport?.width,
+          viewportHeight: viewport?.height,
+        });
       } catch (error) {
         return textResult({ success: false, error: errorMessage(error) }, true);
       }

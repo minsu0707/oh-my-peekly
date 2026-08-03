@@ -49,13 +49,17 @@ disable-model-invocation: false
 
 1. 2단계에서 확보한 화면 목록을 순회한다. 각 화면마다:
    - `browser_navigate(url)`로 이동
-   - 체크리스트 항목에 따라 `browser_click`/`browser_type`으로 조작하고 `browser_screenshot`으로 증거를 남긴다
+   - 체크리스트 항목에 따라 `browser_click`/`browser_type`으로 조작하고 `browser_screenshot`으로 증거를 남긴다 (이때 반환되는 `width`/`height`를 기억해둔다 — 아래 3번에서 필요)
    - 화면이 정상인지/이슈인지는 **네가 직접 판단**한다 (도구는 판단하지 않는다)
 2. **기본 체크리스트(provisional, 미확정)**: 설계 문서 6장에서 기본 체크리스트 항목은 아직 확정되지 않은 오픈 이슈다. 사용자가 별도 체크리스트를 지정하지 않았다면 아래를 잠정 기본값으로 사용하되, 반드시 "확정된 사양이 아니며 원하면 다른 체크리스트로 대체 가능"이라고 사용자에게 밝혀라:
    - 클릭 반응 확인 (버튼/링크가 의도한 대로 반응하는지)
    - 폼 제출/파일 첨부 정상 동작 여부
    - 에러 메시지의 적절성
    - 레이아웃 정렬 문제 여부
+3. **이슈의 문제 위치 표시(problemArea)**: 이슈가 특정 UI 요소(입력창, 버튼 등)에 딸린 문제라면, 그 요소의 CSS 셀렉터로 `browser_bounding_box(selector)`를 호출해 픽셀 단위 위치(x, y, width, height)와 뷰포트 크기를 받아온다. 이 값을 아래처럼 0~1 비율로 변환해서 나중에 6단계 `generate_report`의 `issues[].problemArea`에 그대로 넘긴다 (도구가 계산해주지 않으니 네가 직접 나눗셈해라):
+   - `xFraction = x / viewportWidth`, `yFraction = y / viewportHeight`
+   - `widthFraction = width / viewportWidth`, `heightFraction = height / viewportHeight`
+   - (`viewportWidth`/`viewportHeight`는 `browser_bounding_box`가 반환하거나, 직전 `browser_screenshot`의 `width`/`height`와 같은 값이다 — 스크린샷과 같은 스크롤 위치에서 측정했다는 전제.) 특정 요소를 콕 집기 애매한 레이아웃/텍스트 이슈라면 `problemArea` 없이 넘어가도 된다(선택 사항).
 
 ## 5단계 — 이슈 정리 (1단계에서 캐시된 `issueReviewMode` 설정에 따라 분기)
 
@@ -70,7 +74,7 @@ disable-model-invocation: false
 
 1. 5단계 결과 최종 확정된 이슈 목록을 사용한다 (`auto` 모드면 전부, `manual` 모드면 "포함"으로 확정된 것만).
 2. **계정 단위로 보고서를 분리**한다 — `generate_report`는 한 번 호출에 계정 1개 보고서 1개만 만든다. 계정이 여러 개면 계정 수만큼 반복 호출해야 한다(도구가 다중 계정을 알아서 나눠주지 않는다).
-3. 각 계정마다 `generate_report(templatePath, outputPath?, accountName?, issues[])`를 호출한다. 이때 `issues`는 각 항목이 `breadcrumb`/`screenshotPath`/`problem`/`improvement` 4개 필드를 가진 배열이어야 한다.
+3. 각 계정마다 `generate_report(templatePath, outputPath?, accountName?, issues[])`를 호출한다. 이때 `issues`는 각 항목이 `breadcrumb`/`screenshotPath`/`problem`/`improvement` 4개 필드를 가진 배열이어야 하고, 4단계 3번에서 계산해둔 `problemArea`가 있으면 그 항목도 함께 넘긴다(선택 필드).
 4. 파일명은 2단계로 물어본다 (자유 텍스트 "Enter 시 기본값" 방식이 아니라):
    1. 먼저 `AskUserQuestion`으로 Y/N을 물어본다: 질문 본문에 계산해둔 기본 파일명(`템플릿이름_계정명_날짜`, 계정이 여러 개면 뒤에 계정명이 자동으로 붙는다는 것까지 포함)을 보여주고, 옵션은 `["기본값 사용 (권장)", "직접 입력"]`.
    2. **"기본값 사용"을 선택하면** 그 기본값을 그대로 쓴다.
@@ -101,8 +105,9 @@ disable-model-invocation: false
 | `browser_navigate` | url | success, url, title, status | |
 | `browser_click` | selector, timeoutMs? | success, url | |
 | `browser_type` | selector, text, timeoutMs? | success | |
-| `browser_screenshot` | path? | success, path | |
+| `browser_screenshot` | path? | success, path, width, height | width/height는 problemArea 비율 계산에 사용 |
+| `browser_bounding_box` | selector | success, x, y, width, height, viewportWidth, viewportHeight | 문제 요소의 픽셀 위치 — 판단 없이 사실만 반환 |
 | `open_in_viewer` | filePath | success | |
-| `generate_report` | templatePath, outputPath?, accountName?, issues[] | outputPath, slideCount | 호출 1회 = 계정 1개 보고서 1개 |
+| `generate_report` | templatePath, outputPath?, accountName?, issues[] (각 항목에 선택적 problemArea) | outputPath, slideCount | 호출 1회 = 계정 1개 보고서 1개. problemArea 있으면 스크린샷 위에 배경색 없는 테두리 도형으로 표시 |
 
 이 요약은 참고용이며, 실제 zod 스키마는 `src/tools/*.ts`를 기준으로 한다.
