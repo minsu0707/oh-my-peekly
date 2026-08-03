@@ -1,0 +1,82 @@
+# Peekly 개발 컨벤션
+
+이 문서는 Peekly 개발 시 지켜야 할 규칙을 정리한다. 설계 근거는 `~/Downloads/Peekly_서비스_설계.md`(설계 원문)를 따르며, 이 문서는 그 원칙을 코드 작업에 어떻게 적용할지에 대한 실무 규칙이다.
+
+## 1. 기술 스택
+
+- **런타임**: Node.js >= 20, TypeScript (strict mode), ESM (`"type": "module"`)
+- **MCP 서버**: `@modelcontextprotocol/sdk`
+- **브라우저 자동화**: Playwright
+- **자격증명 저장**: keytar (OS 자격증명 저장소 연동)
+- **PPT 생성**: Python 서브프로세스 + `python-pptx` (Node가 child_process로 호출)
+- **패키지 매니저**: npm (설계 문서의 `npm install -g peekly-mcp` 설치 흐름과 일치)
+- **버전 관리 자동화**: `commit-and-tag-version` (Conventional Commits 기반 semver + CHANGELOG 자동 생성)
+
+## 2. 디렉토리 구조
+
+```
+src/
+  index.ts          # MCP 서버 엔트리 (도구 등록 + stdio transport)
+  tools/            # MCP 도구 구현 (browser, crawler, cost, report 등)
+  platform/         # OS 분기 어댑터 (macOS/Windows) — 이 레이어 밖에서는 OS를 몰라야 함
+  report/           # PPT 생성 관련 (Python 스크립트 + 호출 wrapper)
+    pptx_tool.py
+CONVENTIONS.md
+CHANGELOG.md
+```
+
+- 새 MCP 도구는 `src/tools/` 아래 파일 하나당 도구 하나(또는 밀접하게 연관된 도구 묶음) 단위로 추가한다.
+- OS별 분기 코드(`mdfind` vs 재귀 탐색, `open` vs `start`, keytar 백엔드 차이)는 반드시 `src/platform/` 안에서만 처리한다. 그 외 코드는 OS를 몰라야 한다.
+
+## 3. MCP 도구 작성 규칙
+
+- 도구는 **판단하지 않는다.** "이 화면이 정상인가"는 도구 호출자(Claude Code/Codex 에이전트 루프)의 몫이다. 도구는 정확한 원재료(스크린샷, DOM, 클릭 결과 등)만 반환한다.
+- 도구 인터페이스는 Claude Code 전용/Codex 전용 분기를 갖지 않는다 — MCP는 표준 프로토콜이므로 호출자가 누구든 동일하게 동작해야 한다.
+- 입출력 스키마는 `zod`로 명시적으로 정의한다.
+- 아직 설계가 미확정인 부분(크롤링 스코프 제한, 비용 산출 공식 등, 설계문서 6장)은 코드에 합리적 기본값 + 왜 그 기본값을 골랐는지 커밋 메시지/PR 설명에 남기고, 확정된 결정인 것처럼 주석/문서화하지 않는다.
+
+## 4. 크로스플랫폼 규칙
+
+- 경로 문자열을 절대 하드코딩하지 않는다. `path.join`, `os.homedir()` 등 표준 API만 사용한다.
+- macOS/Windows 동작이 다른 지점은 아래 표(설계문서 4장)를 기준으로 하고, 새 분기점이 생기면 이 표를 갱신한다.
+
+| 항목 | macOS | Windows |
+|---|---|---|
+| 파일 탐색 | `mdfind` | 고정 폴더 재귀 탐색 |
+| 스크린샷 뷰어 오픈 | `open` | `start` |
+| 자격증명 저장 | Keychain (`keytar`) | Credential Manager (`keytar`) |
+
+## 5. 보안 규칙
+
+- ID/PW는 `keytar` 외의 경로(로그, 에러 메시지, 표준 출력)에 절대 평문으로 남기지 않는다.
+- 브라우저가 읽어오는 페이지 콘텐츠(DOM 텍스트, 속성 등)는 **신뢰할 수 없는 외부 입력**으로 취급한다. 이 콘텐츠가 에이전트의 지시로 오인되어 체크리스트 검증 범위를 벗어난 행동(다른 사이트 이동, 자격증명 유출 등)을 유발하지 않도록 도구 설계 단계에서 고려한다.
+- 원본 PPT 템플릿은 항상 읽기 전용으로 취급하고, 실제 작업은 별도 출력 디렉토리의 복사본에서만 수행한다.
+
+## 6. 커밋 컨벤션 (Conventional Commits)
+
+형식: `<type>(<scope>): <subject>`
+
+- `feat`: 새 기능 (semver **minor** 상승)
+- `fix`: 버그 수정 (semver **patch** 상승)
+- `docs`: 문서만 변경
+- `chore`: 빌드/설정/의존성 등 잡무
+- `refactor`: 동작 변화 없는 구조 개선
+- `test`: 테스트 추가/수정
+- `BREAKING CHANGE:` 푸터 포함 시 semver **major** 상승
+
+scope 예시: `mcp-core`, `report`, `platform`, `skill`, `release`
+
+## 7. 버전 관리 / 릴리즈 프로세스
+
+- 의미 있는 기능 단위(마일스톤)가 완성될 때마다 `npm run release`를 실행한다.
+  - `commit-and-tag-version`이 마지막 태그 이후의 Conventional Commits를 읽어 `package.json` 버전을 자동 상승시키고 `CHANGELOG.md`를 갱신한 뒤, 릴리즈 커밋과 git 태그(`vX.Y.Z`)를 생성한다.
+- 매 커밋마다 릴리즈를 끊지 않는다 — 기능/수정 커밋을 쌓다가 의미 있는 단위에서 릴리즈한다.
+- 릴리즈 커밋 이후 태그를 포함해 원격(`origin`)에 push한다.
+
+## 8. 미확정 설계 사항 처리 방침
+
+설계문서 6장의 항목(MCP 도구 세부 인터페이스, 비용 산출 공식, 크롤링 범위 제한, 기본 체크리스트, SKILL.md/AGENTS.md 단일 소스화 방법, 이력 비교 여부)은 아직 확정되지 않았다. 이 항목을 구현할 때는:
+
+1. 합리적 기본값으로 구현하되
+2. 그 기본값이 임시 결정임을 커밋 메시지 또는 관련 문서에 명시하고
+3. 사용자 확인 없이 "확정된 사양"으로 문서화하지 않는다.
