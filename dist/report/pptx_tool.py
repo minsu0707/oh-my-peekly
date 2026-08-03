@@ -111,6 +111,9 @@ ISSUE_TEMPLATE_SLIDE_INDEX = 1
 SCREENSHOT_SHAPE_NAME = "screenshot"
 PROBLEM_AREA_LINE_COLOR = RGBColor(0xFF, 0x00, 0x00)
 PROBLEM_AREA_LINE_WIDTH = Pt(2.25)
+# Extra breathing room around the tight element bounds so the outline
+# doesn't hug the flagged element pixel-for-pixel (purely cosmetic margin).
+PROBLEM_AREA_PADDING = Pt(6)
 
 _R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 _R_NS_PREFIX = "{%s}" % _R_NS
@@ -234,6 +237,17 @@ def _draw_problem_area(slide, screenshot_shape, problem_area: dict[str, float]) 
     top = screenshot_shape.top + int(problem_area["yFraction"] * screenshot_shape.height)
     width = int(problem_area["widthFraction"] * screenshot_shape.width)
     height = int(problem_area["heightFraction"] * screenshot_shape.height)
+
+    # Pad outward, then clamp to the screenshot's own bounds so the
+    # outline never spills outside the image it's annotating.
+    screenshot_right = screenshot_shape.left + screenshot_shape.width
+    screenshot_bottom = screenshot_shape.top + screenshot_shape.height
+    padded_left = max(screenshot_shape.left, left - PROBLEM_AREA_PADDING)
+    padded_top = max(screenshot_shape.top, top - PROBLEM_AREA_PADDING)
+    padded_right = min(screenshot_right, left + width + PROBLEM_AREA_PADDING)
+    padded_bottom = min(screenshot_bottom, top + height + PROBLEM_AREA_PADDING)
+    left, top = padded_left, padded_top
+    width, height = padded_right - padded_left, padded_bottom - padded_top
 
     box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
     box.fill.background()  # no fill — outline only, so it doesn't cover the screenshot underneath
