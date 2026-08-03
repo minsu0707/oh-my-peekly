@@ -120,8 +120,8 @@ rm -rf ~/.claude/skills/peekly
 
 - **PPT 템플릿 규칙이 아직 임시값**: 실제 템플릿 파일이 없어서, 이슈 슬라이드는 템플릿의 2번째 슬라이드로 가정하고 `{{breadcrumb}}`/`{{problem}}`/`{{improvement}}` 텍스트 토큰 + `"screenshot"`이라는 이름의 도형을 치환하는 방식으로 구현되어 있습니다. 실제 템플릿을 주시면 이 규칙을 맞춰 수정합니다.
 - **macOS 미검증**: 개발 환경이 Windows라 `mdfind`/`open` 분기는 코드 리뷰 수준으로만 확인했고 실제 실행 검증은 안 됐습니다.
-- **npm 레지스트리 미배포**: `npm install -g peekly-mcp` (레지스트리 경유)가 아니라 위처럼 GitHub 클론 방식으로만 설치됩니다. `dist/`가 예외적으로 git에 커밋되어 있습니다 (자세한 이유는 `CONVENTIONS.md` 참고).
+- **npm 레지스트리 미배포**: `npm install -g peekly-mcp` (레지스트리 경유)가 아니라 위처럼 GitHub 클론 방식으로만 설치됩니다. `dist/`가 예외적으로 git에 커밋되어 있습니다 (자세한 이유는 `docs/CONVENTIONS.md` 참고).
 - **기본 체크리스트/크롤링 상한/비용 산출 공식**은 전부 잠정값이며, 실제 사내 QA 프로세스에 맞춰 조정이 필요합니다.
 - Codex 지원(AGENTS.md)은 아직 없습니다.
 
-개발 컨벤션은 [CONVENTIONS.md](./CONVENTIONS.md), 변경 이력은 [CHANGELOG.md](./CHANGELOG.md)를 참고하세요.
+개발 컨벤션은 [CONVENTIONS.md](./docs/CONVENTIONS.md), 변경 이력은 [CHANGELOG.md](./docs/CHANGELOG.md)를 참고하세요.
