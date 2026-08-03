@@ -1,5 +1,5 @@
 ---
-description: 서비스 URL/계정/PPT 템플릿만 있으면 웹 서비스를 순회하며 QA 테스트를 수행하고, 발견한 이슈를 (현재는 이슈별 검수 없이 자동 포함해) 계정별 PPT 보고서로 생성한다.
+description: 서비스 URL/계정/PPT 템플릿만 있으면 웹 서비스를 순회하며 QA 테스트를 수행하고, 발견한 이슈를 (설정에 따라 자동 포함 또는 이슈별 검수 후) 계정별 PPT 보고서로 생성한다.
 when_to_use: 사용자가 "/peekly run", "QA 테스트", "서비스 점검", "테스트 결과서 만들어줘" 등을 요청할 때
 disable-model-invocation: false
 ---
@@ -24,7 +24,10 @@ disable-model-invocation: false
    - 파일명을 받고,
    - **"이 파일은 어떤 용도인가요?"**를 반드시 되물어라. 용도를 미리 카테고리화하지 마라 — 사용자가 설명한 그대로("정상 화면 기준을 확인하는 용도" 등) 참고 방식을 네가 유연하게 판단해서 이후 테스트에 활용한다.
 4. 체크리스트는 사용자가 직접 입력할 수도 있고, 기본 제공 체크리스트(4단계 참조)를 쓸 수도 있다. 어느 쪽을 쓸지 물어보거나, 사용자가 특별히 언급하지 않으면 기본 체크리스트를 쓴다고 안내한다.
-5. 이 1단계는 최초 1회만 전부 수행한다. 이미 URL에 대한 자격증명과 템플릿 경로가 캐시되어 있으면, 이후 실행은 **URL만으로** 바로 2단계(사전 확인)부터 시작할 수 있어야 한다.
+5. **이슈 검수 방식**: `get_setting(key: "issueReviewMode")`로 캐시된 설정이 있는지 먼저 확인한다.
+   - `found: true`이면 그 값(`"auto"` 또는 `"manual"`)을 그대로 쓰고 다시 묻지 않는다.
+   - `found: false`이면 `AskUserQuestion`으로 한 번만 물어본다: 옵션 `["발견 즉시 자동 포함 (권장)", "이슈마다 확인받기"]`. 고른 값을 `"auto"`/`"manual"`로 매핑해 `save_setting(key: "issueReviewMode", value: ...)`로 저장한다. (설정은 언제든 사용자가 "이슈 검수 방식 바꿔줘"라고 하면 다시 물어보고 덮어써라.)
+6. 이 1단계는 최초 1회만 전부 수행한다. 이미 URL에 대한 자격증명과 템플릿 경로가 캐시되어 있으면, 이후 실행은 **URL만으로** 바로 2단계(사전 확인)부터 시작할 수 있어야 한다. (이슈 검수 방식 설정은 URL과 무관하게 한 번만 물어보면 계속 재사용된다.)
 
 ## 2단계 — 사전 확인 (비용·시간 안내, 사용자 승인 필수)
 
@@ -54,15 +57,18 @@ disable-model-invocation: false
    - 에러 메시지의 적절성
    - 레이아웃 정렬 문제 여부
 
-## 5단계 — 이슈 정리 (검수 없이 자동 포함, PROVISIONAL)
+## 5단계 — 이슈 정리 (1단계에서 캐시된 `issueReviewMode` 설정에 따라 분기)
 
-- **당분간 이슈마다 Y/N으로 확인받지 않는다** — 화면별 테스트 루프(4단계)에서 이슈로 판단한 항목은 전부 자동으로 보고서 대상에 포함한다. (설계문서 5장은 원래 "이슈 검수 Y/N 질문형"을 확정 사항으로 뒀지만, 매 이슈마다 물어보는 게 번거롭다는 사용자 피드백에 따라 임시로 끈 것 — 다시 켜고 싶다고 하면 이전처럼 이슈마다 `AskUserQuestion`(`["포함 (권장)", "제외"]`)으로 확인받는 방식으로 되돌릴 수 있다.)
-- "정상"으로 판단한 화면은 원래대로 보고서 대상에서 제외한다 (이건 그대로 유지).
-- 이슈 목록은 나중에 참고할 수 있도록 화면별 테스트 진행 중 사용자에게 계속 알려줘라(몇 번째 화면에서 어떤 문제를 발견했는지) — 다만 매번 응답을 기다리지는 않는다.
+- "정상"으로 판단한 화면은 설정과 무관하게 항상 보고서 대상에서 제외한다 (검수 목록에 아예 노출하지 않음).
+- **`issueReviewMode == "auto"`** (기본/권장): 이슈로 판단한 항목을 전부 자동으로 보고서 대상에 포함한다. 화면별 테스트 진행 중 몇 번째 화면에서 어떤 문제를 발견했는지 사용자에게 계속 알려주되, 매번 응답을 기다리지는 않는다.
+- **`issueReviewMode == "manual"`**: 이슈로 판단한 화면마다
+  1. `open_in_viewer(screenshotPath)`로 해당 스크린샷을 자동으로 연다.
+  2. `AskUserQuestion` 도구로 물어본다 — 질문 본문에 `[n/총계] {경로 브레드크럼} --> [{계정/권한}]`과 `문제: {발견한 문제 설명}`을 포함하고, 옵션은 `["포함 (권장)", "제외"]`.
+  3. "제외"를 선택한 이슈만 이후 보고서 생성 대상에서 뺀다.
 
 ## 6단계 — 보고서 생성
 
-1. 4단계에서 이슈로 판단된 항목 전부를 필터링 없이 그대로 사용한다.
+1. 5단계 결과 최종 확정된 이슈 목록을 사용한다 (`auto` 모드면 전부, `manual` 모드면 "포함"으로 확정된 것만).
 2. **계정 단위로 보고서를 분리**한다 — `generate_report`는 한 번 호출에 계정 1개 보고서 1개만 만든다. 계정이 여러 개면 계정 수만큼 반복 호출해야 한다(도구가 다중 계정을 알아서 나눠주지 않는다).
 3. 각 계정마다 `generate_report(templatePath, outputPath?, accountName?, issues[])`를 호출한다. 이때 `issues`는 각 항목이 `breadcrumb`/`screenshotPath`/`problem`/`improvement` 4개 필드를 가진 배열이어야 한다.
 4. 파일명은 2단계로 물어본다 (자유 텍스트 "Enter 시 기본값" 방식이 아니라):
@@ -87,6 +93,8 @@ disable-model-invocation: false
 |---|---|---|---|
 | `get_credentials` | serviceUrl | found, loginId, password | 없으면 found:false (에러 아님) |
 | `save_credentials` | serviceUrl, loginId, password | success | |
+| `get_setting` | key | found, value | 없으면 found:false (에러 아님). 예: `issueReviewMode` |
+| `save_setting` | key, value | success | 비밀정보 아닌 설정용 (keytar 아님, 평문 JSON 캐시) |
 | `find_local_file` | filename | found, path, matchCount | 전체 경로가 아닌 파일명 기반 검색 |
 | `sitemap_crawl` | startUrl, maxPages? | urls, totalCount, truncated | maxPages 기본값(현재 50)은 provisional |
 | `estimate_cost` | screenCount, checklistItemCount? | estimatedMinutes, estimatedCostKrw, assumptions | 산출 공식·기본 체크리스트 개수는 provisional |

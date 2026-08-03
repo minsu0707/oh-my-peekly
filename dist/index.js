@@ -9,6 +9,7 @@ import { registerCrawlerTools } from "./tools/crawler.js";
 import { registerCostTools } from "./tools/cost.js";
 import { registerPlatformTools } from "./tools/platform.js";
 import { registerReportTools } from "./tools/report.js";
+import { registerSettingsTools } from "./tools/settings.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"));
 const server = new McpServer({
@@ -20,6 +21,7 @@ registerCrawlerTools(server);
 registerCostTools(server);
 registerPlatformTools(server);
 registerReportTools(server);
+registerSettingsTools(server);
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
