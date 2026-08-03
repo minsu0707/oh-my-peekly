@@ -159,6 +159,16 @@ export function registerReportTools(server: McpServer): void {
         }
 
         const resolvedOutputPath = outputPath ?? defaultOutputPath(templatePath, accountName);
+        if (path.resolve(resolvedOutputPath) === path.resolve(templatePath)) {
+          return textResult(
+            {
+              success: false,
+              error:
+                "outputPath must not be the same file as templatePath — the template is always read-only; choose a different output filename.",
+            },
+            true
+          );
+        }
         await fs.promises.mkdir(path.dirname(resolvedOutputPath), { recursive: true });
 
         const job = { templatePath, outputPath: resolvedOutputPath, issues };

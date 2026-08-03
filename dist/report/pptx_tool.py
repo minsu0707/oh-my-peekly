@@ -264,6 +264,15 @@ def _generate_report(job: dict[str, Any]) -> dict[str, Any]:
     if not os.path.isfile(template_path):
         return {"success": False, "error": f"template not found: {template_path}"}
 
+    if os.path.abspath(output_path) == os.path.abspath(template_path):
+        return {
+            "success": False,
+            "error": (
+                "outputPath must not be the same file as templatePath — the template is always "
+                "read-only; choose a different output filename."
+            ),
+        }
+
     # Original template is always read-only: copy first, then only ever
     # open/modify/save the copy at output_path. Never open template_path
     # itself with Presentation() for editing.
