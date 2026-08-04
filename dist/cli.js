@@ -24,17 +24,17 @@ function copyDirRecursive(src, dest) {
     }
 }
 /**
- * Copies the bundled `peekly` skill into the user's PERSONAL skill
- * directory (`~/.claude/skills/peekly/`), not a per-project one. This is
+ * Copies the bundled `oh-my-peekly` skill into the user's PERSONAL skill
+ * directory (`~/.claude/skills/oh-my-peekly/`), not a per-project one. This is
  * a one-time, install-once-use-everywhere setup: personal-scope skills
  * apply across all of the user's projects (personal scope also overrides
  * project scope, so this still wins even in a project that happens to
- * have its own `.claude/skills/peekly`). Pass `--project` to install into
- * the current directory's `.claude/skills/peekly/` instead, for the rare
+ * have its own `.claude/skills/oh-my-peekly`). Pass `--project` to install into
+ * the current directory's `.claude/skills/oh-my-peekly/` instead, for the rare
  * case of a project-pinned override.
  */
 function installSkill(args) {
-    const skillName = "peekly";
+    const skillName = "oh-my-peekly";
     const source = path.join(SKILLS_SOURCE_ROOT, skillName);
     if (!fs.existsSync(source)) {
         console.error(`Bundled skill not found at ${source}`);
@@ -47,8 +47,8 @@ function installSkill(args) {
         : path.join(os.homedir(), ".claude", "skills");
     const targetDir = path.join(skillsRoot, skillName);
     copyDirRecursive(source, targetDir);
-    console.log(`Peekly skill installed to ${targetDir}`);
-    console.log(`If ${skillsRoot} didn't already exist, restart Claude Code (or start a new session) so it picks up the new directory, then use /peekly.`);
+    console.log(`oh-my-peekly skill installed to ${targetDir}`);
+    console.log(`If ${skillsRoot} didn't already exist, restart Claude Code (or start a new session) so it picks up the new directory, then use /oh-my-peekly.`);
 }
 function main() {
     const [command, ...rest] = process.argv.slice(2);

@@ -1,10 +1,10 @@
 ---
 description: 서비스 URL/계정/PPT 템플릿만 있으면 웹 서비스를 순회하며 QA 테스트를 수행하고, 발견한 이슈를 (설정에 따라 자동 포함 또는 이슈별 검수 후) 계정별 PPT 보고서로 생성한다.
-when_to_use: 사용자가 "/peekly run", "QA 테스트", "서비스 점검", "테스트 결과서 만들어줘" 등을 요청할 때
+when_to_use: 사용자가 "/oh-my-peekly run", "QA 테스트", "서비스 점검", "테스트 결과서 만들어줘" 등을 요청할 때
 disable-model-invocation: false
 ---
 
-# Peekly — 웹 서비스 QA 자동 점검 워크플로우
+# oh-my-peekly — 웹 서비스 QA 자동 점검 워크플로우
 
 이 문서는 **지시문**이다. 아래에서 호출하는 MCP 도구(`browser_*`, `sitemap_crawl`, `estimate_cost`, `generate_report`, `save_credentials`/`get_credentials`/`find_local_file`/`open_in_viewer`)는 전부 "판단하지 않는다" — 화면이 정상인지, 어떤 화면/체크리스트를 적용할지, 이슈를 보고서에 넣을지 같은 판단은 전부 너(에이전트)의 몫이다. 도구는 원재료(스크린샷, DOM, 클릭 결과, 크롤링 목록 등)만 반환한다.
 
@@ -94,7 +94,7 @@ disable-model-invocation: false
   ```
   완료! 결과물: ./output/EEM_QC결과서_0803_qc_user.pptx
   ```
-- 다음부터는 `/peekly run --url <url>` 한 줄이면 ID/PW/템플릿 재입력 없이 2단계(사전 확인)부터 바로 시작할 수 있다고 안내한다.
+- 다음부터는 `/oh-my-peekly run --url <url>` 한 줄이면 ID/PW/템플릿 재입력 없이 2단계(사전 확인)부터 바로 시작할 수 있다고 안내한다.
 
 ---
 

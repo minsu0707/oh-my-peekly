@@ -25,7 +25,7 @@ src/
   platform/         # OS 분기 어댑터 (macOS/Windows) — 이 레이어 밖에서는 OS를 몰라야 함
   report/           # PPT 생성 관련 (Python 스크립트 + 호출 wrapper)
     pptx_tool.py
-skills/peekly/SKILL.md  # 플러그인이 번들하는 Skill (기본 경로 규칙상 위치 고정)
+skills/oh-my-peekly/SKILL.md  # 플러그인이 번들하는 Skill (기본 경로 규칙상 위치 고정)
 docs/
   CONVENTIONS.md
   CHANGELOG.md
@@ -96,7 +96,8 @@ npm 레지스트리에 publish하지 않고(사내 전용) GitHub에서 바로 `
 - **플러그인 설치는 의존성 설치를 대신해주지 않는다.** `claude plugin install`은 스킬/MCP 설정 파일을 복사할 뿐, `npm install`(Playwright 브라우저 다운로드 포함)이나 keytar 네이티브 빌드, `pip install`은 실행하지 않는다. 그래서 README의 설치 한 줄 명령에서 `npm install -g .` + `pip install -r requirements.txt` 단계는 플러그인 전환 후에도 계속 필요하다 — 이 부분을 없애려면 `peekly-mcp`를 npm 레지스트리에 정식 배포해서 `npx peekly-mcp`가 로컬 clone 없이도 동작하게 만들어야 하는데, 이는 아직 결정되지 않은 별도 사안이다 (섹션 8 참고).
 - `.claude/agents/*.md`(개발용 서브에이전트 5개)는 **플러그인에 포함하지 않는다.** 이건 Peekly를 "만드는" 우리 쪽 개발 도구이지, Peekly를 "쓰는" 최종 사용자에게 필요한 게 아니다. `plugin.json`에 `agents` 필드를 넣지 않은 건 의도적인 선택이다.
 - `peekly install-skill` CLI(`src/cli.ts`)는 플러그인 등장 이후에도 지우지 않았다 — 프로젝트 스코프로만 스킬을 따로 설치하고 싶은 경우 등 수동 설치 경로로 남겨둔다. 다만 README의 기본 안내 경로는 플러그인 설치로 바뀌었다.
-- **중복 확인됨 (2026-08-04)**: 이 저장소 안의 `.claude/skills/peekly/`(project-scope, `install-skill --project`로 만든 dogfooding용 사본)와 플러그인이 번들하는 스킬이 이 저장소 폴더 안에서 작업할 때 **동시에** 잡힌다 — 실제 화면에서 `/peekly`(project-scope 사본)와 `/oh-my-peekly:peekly`(플러그인, `플러그인이름:스킬이름` 네임스페이스)가 나란히 뜨는 것으로 확인했다. 플러그인을 언인스톨해도 세션을 재시작하기 전까지는 `/oh-my-peekly:peekly`가 계속 남아있을 수 있다(플러그인 변경은 재시작 후 반영 — 다른 곳에서도 반복 확인된 패턴). 하드 에러나 도구 충돌은 아니고 그냥 커맨드 팔레트에 두 개로 보이는 정도라, 당장 `.claude/skills/peekly/`를 지울 필요는 없다고 판단했다 — 이 저장소에서 개발하는 사람 입장에서는 플러그인 설치 여부와 무관하게 project-scope 사본으로 항상 `/peekly`가 뜨는 게 오히려 편리할 수 있다. 다만 "플러그인만 쓰면 되지 project-scope 사본은 왜 필요하냐"는 질문이 다시 나오면 이 항목부터 다시 논의할 것.
+- **중복 확인됨 (2026-08-04)**: 이 저장소 안의 project-scope 스킬 사본(`install-skill --project`로 만든 dogfooding용)과 플러그인이 번들하는 스킬이 이 저장소 폴더 안에서 작업할 때 **동시에** 잡힌다 — 실제 화면에서 `/peekly`(project-scope 사본)와 `/oh-my-peekly:peekly`(플러그인, `플러그인이름:스킬이름` 네임스페이스)가 나란히 뜨는 것으로 확인했다. 플러그인을 언인스톨해도 세션을 재시작하기 전까지는 네임스페이스 붙은 쪽이 계속 남아있을 수 있다(플러그인 변경은 재시작 후 반영 — 다른 곳에서도 반복 확인된 패턴). 하드 에러나 도구 충돌은 아니고 그냥 커맨드 팔레트에 두 개로 보이는 정도라, 당장 project-scope 사본을 지울 필요는 없다고 판단했다 — 이 저장소에서 개발하는 사람 입장에서는 플러그인 설치 여부와 무관하게 project-scope 사본으로 항상 명령이 뜨는 게 오히려 편리할 수 있다. 다만 "플러그인만 쓰면 되지 project-scope 사본은 왜 필요하냐"는 질문이 다시 나오면 이 항목부터 다시 논의할 것.
+- **스킬 이름을 `peekly`에서 `oh-my-peekly`로 통일 (2026-08-04)**: 플러그인 이름(`oh-my-peekly`)과 스킬 이름이 서로 달라서 생기던 혼란(위 항목에서 `/peekly` vs `/oh-my-peekly:peekly`로 나타남)을 줄이려고, `skills/peekly/` → `skills/oh-my-peekly/`로 스킬 자체 이름을 바꿨다. 프로젝트/개인 스코프로 설치하면 `/oh-my-peekly` 하나, 플러그인으로 설치하면 이름이 같아져서 `/oh-my-peekly:oh-my-peekly`로 뜬다(반복돼서 보이지만, 플러그인 이름과 스킬 이름을 통일하는 쪽을 택한 결과다). `npm` 패키지명(`peekly-mcp`)과 바이너리(`peekly-mcp`/`peekly`), MCP 서버 등록 이름(`peekly`)은 이번에는 바꾸지 않았다 — 스킬/명령어 이름만 통일하기로 범위를 좁혀서 진행했다.
 
 ## 9. 미확정 설계 사항 처리 방침
 

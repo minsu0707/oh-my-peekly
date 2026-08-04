@@ -31,7 +31,7 @@
 
 ## 설치 — 딱 한 번, 복사해서 붙여넣기만 하면 끝
 
-터미널(아무 폴더에서나 — 프로젝트 폴더일 필요 없습니다)에 아래 블록을 **통째로 복사해서 한 번에 붙여넣으세요.** 컴퓨터 한 대당 딱 한 번만 하면 되고, 그 뒤로는 **어떤 프로젝트에서든** `/peekly`를 바로 쓸 수 있습니다.
+터미널(아무 폴더에서나 — 프로젝트 폴더일 필요 없습니다)에 아래 블록을 **통째로 복사해서 한 번에 붙여넣으세요.** 컴퓨터 한 대당 딱 한 번만 하면 되고, 그 뒤로는 **어떤 프로젝트에서든** `/oh-my-peekly`를 바로 쓸 수 있습니다.
 
 **macOS / Linux / Git Bash:**
 ```bash
@@ -52,8 +52,9 @@ Windows에서는 **PowerShell이 아니라 명령 프롬프트(cmd)**를 쓰세�
 
 끝까지 에러 없이 실행되면 설치 완료입니다. 마지막 줄에 플러그인 설치 성공 메시지가 보이면 성공입니다.
 
-- **Claude Code 플러그인 자체가 이 컴퓨터에 처음 설치되는 거라면**, Claude Code를 한 번 껐다 켜거나 새 세션을 시작해야 `/peekly` 명령이 인식됩니다. 그다음부터는 재시작 없이 계속 사용 가능합니다.
-- 기본적으로 **사용자 스코프**로 설치되기 때문에, 이후 QA를 돌리고 싶은 프로젝트가 몇 개든 각 프로젝트마다 다시 설치할 필요 없이 바로 `/peekly`를 쓸 수 있습니다. 특정 프로젝트에만 설치하고 싶다면 마지막 줄을 `claude plugin install oh-my-peekly@oh-my-peekly --scope project`로 바꾸고 그 프로젝트 폴더에서 실행하세요.
+- **Claude Code 플러그인 자체가 이 컴퓨터에 처음 설치되는 거라면**, Claude Code를 한 번 껐다 켜거나 새 세션을 시작해야 명령이 인식됩니다. 그다음부터는 재시작 없이 계속 사용 가능합니다.
+- 기본적으로 **사용자 스코프**로 설치되기 때문에, 이후 QA를 돌리고 싶은 프로젝트가 몇 개든 각 프로젝트마다 다시 설치할 필요 없이 바로 쓸 수 있습니다. 특정 프로젝트에만 설치하고 싶다면 마지막 줄을 `claude plugin install oh-my-peekly@oh-my-peekly --scope project`로 바꾸고 그 프로젝트 폴더에서 실행하세요.
+- 플러그인으로 설치하면 명령이 `/oh-my-peekly:oh-my-peekly`처럼 `플러그인이름:스킬이름` 형태로 보일 수 있습니다 (플러그인 이름과 스킬 이름이 둘 다 `oh-my-peekly`라 그렇습니다). `peekly install-skill`로 개인/프로젝트 스코프에 직접 설치하면 `/oh-my-peekly` 하나로 뜹니다.
 
 <details>
 <summary>각 줄이 정확히 뭘 하는지 궁금하다면 (선택 사항, 안 읽어도 됩니다)</summary>
@@ -64,7 +65,7 @@ Windows에서는 **PowerShell이 아니라 명령 프롬프트(cmd)**를 쓰세�
 4. `npm install -g .` — 이 폴더를 컴퓨터 전체에서 `peekly-mcp` 명령으로 부를 수 있게 등록합니다. (3번을 먼저 해야 제대로 동작합니다. Playwright 브라우저 다운로드, keytar 네이티브 빌드 등도 이 단계에서 끝납니다 — 플러그인 설치 자체는 이런 의존성 설치를 대신 해주지 않기 때문에, 이 단계는 앞으로도 계속 필요합니다.)
 5. `pip install -r requirements.txt` — PPT 생성에 쓰는 Python 라이브러리(`python-pptx`)를 설치합니다.
 6. `claude plugin marketplace add ./` — 방금 clone한 이 폴더 자체를 (`.claude-plugin/marketplace.json` 덕분에) 플러그인 마켓플레이스로 등록합니다.
-7. `claude plugin install oh-my-peekly@oh-my-peekly` — 그 마켓플레이스에서 `oh-my-peekly` 플러그인을 설치합니다. 이 한 번으로 `/peekly` 스킬과 Peekly MCP 서버(`.mcp.json`에 정의됨, 내부적으로 `npx peekly-mcp` 실행)가 함께 등록됩니다. `claude plugin list`에서 확인 가능합니다.
+7. `claude plugin install oh-my-peekly@oh-my-peekly` — 그 마켓플레이스에서 `oh-my-peekly` 플러그인을 설치합니다. 이 한 번으로 `oh-my-peekly` 스킬과 Peekly MCP 서버(`.mcp.json`에 정의됨, 내부적으로 `npx peekly-mcp` 실행)가 함께 등록됩니다. `claude plugin list`에서 확인 가능합니다.
 
 사전 준비물(Node.js 20+, Git, Python 3+pip, Claude Code)이 이미 안 되어 있다면 위 명령 중간에 에러가 납니다 — 아래 "사전 준비물" 섹션에서 확인하는 법을 참고하세요.
 
@@ -72,14 +73,14 @@ Windows에서는 **PowerShell이 아니라 명령 프롬프트(cmd)**를 쓰세�
 
 설치가 끝났으면 아래 "사용법"으로 넘어가시면 됩니다.
 
-> **예전 방식(`claude mcp add` + `peekly install-skill`)으로 이미 설치했던 적이 있다면**: 플러그인으로 새로 설치하기 전에 `claude mcp remove peekly -s user`로 예전 등록을 지워주세요. 안 지우면 이름이 같은 `peekly` MCP 서버가 두 곳(수동 등록 + 플러그인 번들)에 남아 충돌할 수 있습니다.
+> **예전 방식(`claude mcp add` + `peekly install-skill`)으로 이미 설치했던 적이 있다면**: 플러그인으로 새로 설치하기 전에 `claude mcp remove peekly -s user`로 예전 등록을 지워주세요. 안 지우면 이름이 같은 `peekly` MCP 서버가 두 곳(수동 등록 + 플러그인 번들)에 남아 충돌할 수 있습니다. 스킬 이름도 `peekly`에서 `oh-my-peekly`로 바뀌었으니, `~/.claude/skills/peekly`가 남아있다면 `rm -rf ~/.claude/skills/peekly`로 지워주세요.
 
 ## 사용법
 
 Claude Code에서:
 
 ```
-/peekly run
+/oh-my-peekly run
 ```
 
 최초 실행 시 다음을 물어봅니다 (모두 선택지 중 하나를 고르는 방식 — 터미널처럼 Enter로 기본값을 받는 게 아니라 매번 옵션을 선택합니다):
@@ -102,7 +103,7 @@ Claude Code에서:
 두 번째 실행부터는:
 
 ```
-/peekly run --url <서비스 URL>
+/oh-my-peekly run --url <서비스 URL>
 ```
 
 한 줄이면 ID/PW/템플릿 재입력 없이 바로 사전 확인 단계부터 시작합니다.
